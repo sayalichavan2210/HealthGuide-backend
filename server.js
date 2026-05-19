@@ -6,6 +6,7 @@ const morgan       = require("morgan");
 const cookieParser = require("cookie-parser");
 const passport     = require("passport");
 require("dotenv").config();
+const session = require("express-session");
 
 const connectDB    = require("./config/db");
 require("./config/passport");
@@ -17,7 +18,6 @@ const { notFound, errorHandler } = require("./middlewares/errorHandler");
 const contactRoutes = require("./routes/contactRoutes");
 
 const app     = express();
-const session = require("express-session");
 
 // ── Connect Database ─────────────────────────────────────
 connectDB();
@@ -47,6 +47,9 @@ app.use(passport.session());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+app.get("/", (req, res) => {
+  res.json({ status: "OK", message: "HealthGuide API is running" });
+});
 
 // ── Health Check ─────────────────────────────────────────
 app.get("/health", (req, res) => {
