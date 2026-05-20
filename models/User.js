@@ -1,85 +1,15 @@
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
-// ✅ This function must be defined BEFORE it's used
-const generateTokens = (user) => {
-  const accessToken = jwt.sign(
-    { id: user._id, email: user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: "15m" }
-  );
-  const refreshToken = jwt.sign(
-    { id: user._id },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: "7d" }
-  );
-  return { accessToken, refreshToken };
-};
+const userSchema = new mongoose.Schema({
+  firstName:    { type: String, required: true },
+  lastName:     { type: String, default: "" },
+  email:        { type: String, required: true, unique: true },
+  password:     { type: String, select: false },
+  googleId:     { type: String },
+  githubId:     { type: String },
+  avatar:       { type: String, default: "" },
+  authProvider: { type: String, default: "local" },
+  isVerified:   { type: Boolean, default: false },
+}, { timestamps: true });
 
-exports.register = async (req, res) => {
-  try {
-    const { firstName, lastName, email, password } = req.body;
-
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ success: false, message: "Email already registered" });
-    }
-
-    const hashed = await bcrypt.hash(password, 12);
-    const user = await User.create({ firstName, lastName, email, password: hashed });
-
-    const { accessToken, refreshToken } = generateTokens(user); // ✅
-
-    res.status(201).json({
-      success: true,
-      user: { _id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email },
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    console.error("Register error:", err);
-    res.status(500).json({ success: false, message: err.message }); // show real error
-  }
-};
-
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
-
-    if (!user.password) {
-      return res.status(401).json({ success: false, message: "Please login with Google or GitHub" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
-
-    const { accessToken, refreshToken } = generateTokens(user); // ✅
-
-    res.json({
-      success: true,
-      user: { _id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email },
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ success: false, message: err.message }); // show real error
-  }
-};
-
-exports.getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("-password");
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+module.exports = mongoose.model("User", userSchema);
