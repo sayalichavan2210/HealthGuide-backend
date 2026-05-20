@@ -1,72 +1,33 @@
-const express  = require("express");
-const passport = require("passport");
-const jwt      = require("jsonwebtoken");
-const router   = express.Router();
-
-const {
-  register,
-  login,
-  getMe,
-  logout,
-} = require("../controllers/authController");
-
+// routes/authRoutes.js
+const express = require("express");
+const router = express.Router();
+const { register, login, getMe } = require("../controllers/authController");
 const { protect } = require("../middlewares/authMiddleware");
+const passport = require("passport");
+const { generateTokens } = require("../utils/generateTokens"); // your token util
 
-// ── Local Auth ────────────────────────────────────────────
+// ── Email/Password ─────────────────────────────
 router.post("/register", register);
-router.post("/login",    login);
-router.post("/logout",   protect, logout);
-router.get("/me",        protect, getMe);
+router.post("/login", login);
+router.get("/me", protect, getMe);
 
-// ── Google OAuth ──────────────────────────────────────────
-router.get("/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
-
+// ── Google OAuth ───────────────────────────────
+router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 router.get("/google/callback",
-  passport.authenticate("google", { session: false, failureRedirect: `${process.env.CLIENT_URL}/auth?error=google_failed` }),
+  passport.authenticate("google", { session: false, failureRedirect: `${process.env.CLIENT_URL}/auth?error=oauth_failed` }),
   (req, res) => {
-    // JWT banao aur frontend pe bhejo
-    const accessToken = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-    const refreshToken = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // Frontend ko redirect karo token ke saath
-    res.redirect(
-      `${process.env.CLIENT_URL}/auth/callback?token=${accessToken}&refresh=${refreshToken}`
-    );
+    const { accessToken, refreshToken } = generateTokens(req.user);
+    res.redirect(`${process.env.CLIENT_URL}/oauth-callback?token=${accessToken}&refresh=${refreshToken}`);
   }
 );
 
-// ── GitHub OAuth ──────────────────────────────────────────
-router.get("/github",
-  passport.authenticate("github", { scope: ["user:email"] })
-);
-
+// ── GitHub OAuth ───────────────────────────────
+router.get("/github", passport.authenticate("github", { scope: ["user:email"] }));
 router.get("/github/callback",
-  passport.authenticate("github", { session: false, failureRedirect: `${process.env.CLIENT_URL}/auth?error=github_failed` }),
+  passport.authenticate("github", { session: false, failureRedirect: `${process.env.CLIENT_URL}/auth?error=oauth_failed` }),
   (req, res) => {
-    const accessToken = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-    const refreshToken = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.redirect(
-      `${process.env.CLIENT_URL}/auth/callback?token=${accessToken}&refresh=${refreshToken}`
-    );
+    const { accessToken, refreshToken } = generateTokens(req.user);
+    res.redirect(`${process.env.CLIENT_URL}/oauth-callback?token=${accessToken}&refresh=${refreshToken}`);
   }
 );
 

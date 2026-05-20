@@ -1,115 +1,86 @@
-const jwt    = require("jsonwebtoken");
-const User   = require("../models/User");
+// controllers/authController.js
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-// Token generate karne ka helper
-const generateTokens = (userId) => {
-const generateTokens = (userId) => {
+const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { id: userId },
+    { id: user._id, email: user.email },
     process.env.JWT_SECRET,
-   { expiresIn: "30m" }
+    { expiresIn: "15m" }
   );
   const refreshToken = jwt.sign(
-    { id: userId },
+    { id: user._id },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: "30d" }
+    { expiresIn: "7d" }
   );
   return { accessToken, refreshToken };
 };
-  return { accessToken, refreshToken };
-};
 
-// ── REGISTER ─────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Email already registered" });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ success: false, message: "Email already registered" });
-    }
+    const hashed = await bcrypt.hash(password, 12);
+    const user = await User.create({ firstName, lastName, email, password: hashed });
 
-    const user = await User.create({ firstName, lastName, email, password });
-    const { accessToken, refreshToken } = generateTokens(user._id);
+    const { accessToken, refreshToken } = generateTokens(user);
 
     res.status(201).json({
       success: true,
-      message: "Registration successful",
+      user: { _id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email },
       accessToken,
       refreshToken,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-      },
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Register error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// ── LOGIN ─────────────────────────────────────────────────
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Email and password required" });
-    }
-
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    // Account locked check
-    if (user.isLocked) {
-      return res.status(423).json({ success: false, message: "Account locked. Try after 30 minutes" });
+    // OAuth users (no password)
+    if (!user.password) {
+      return res.status(401).json({ success: false, message: "Please login with Google or GitHub" });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      await user.incLoginAttempts();
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    await user.resetLoginAttempts();
-    const { accessToken, refreshToken } = generateTokens(user._id);
+    const { accessToken, refreshToken } = generateTokens(user);
 
     res.json({
       success: true,
-      message: "Login successful",
+      user: { _id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email },
       accessToken,
       refreshToken,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-      },
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Login error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// ── GET ME (logged in user) ───────────────────────────────
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user.id).select("-password");
     res.json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Server error" });
   }
-};
-
-// ── LOGOUT ────────────────────────────────────────────────
-exports.logout = async (req, res) => {
-  res.json({ success: true, message: "Logged out successfully" });
 };
