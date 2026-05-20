@@ -1,8 +1,8 @@
-// controllers/authController.js
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+// ✅ This function must be defined BEFORE it's used
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
     { id: user._id, email: user.email },
@@ -29,7 +29,7 @@ exports.register = async (req, res) => {
     const hashed = await bcrypt.hash(password, 12);
     const user = await User.create({ firstName, lastName, email, password: hashed });
 
-    const { accessToken, refreshToken } = generateTokens(user);
+    const { accessToken, refreshToken } = generateTokens(user); // ✅
 
     res.status(201).json({
       success: true,
@@ -39,7 +39,7 @@ exports.register = async (req, res) => {
     });
   } catch (err) {
     console.error("Register error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: err.message }); // show real error
   }
 };
 
@@ -52,7 +52,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    // OAuth users (no password)
     if (!user.password) {
       return res.status(401).json({ success: false, message: "Please login with Google or GitHub" });
     }
@@ -62,7 +61,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user);
+    const { accessToken, refreshToken } = generateTokens(user); // ✅
 
     res.json({
       success: true,
@@ -72,7 +71,7 @@ exports.login = async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: err.message }); // show real error
   }
 };
 
@@ -81,6 +80,6 @@ exports.getMe = async (req, res) => {
     const user = await User.findById(req.user.id).select("-password");
     res.json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -4,7 +4,8 @@ const router = express.Router();
 const { register, login, getMe } = require("../controllers/authController");
 const { protect } = require("../middlewares/authMiddleware");
 const passport = require("passport");
-const { generateTokens } = require("../utils/generateTokens"); // your token util
+const { accessToken, refreshToken } = generateTokens(user);
+const { generateTokens } = require("../utils/generateTokens");
 
 // ── Email/Password ─────────────────────────────
 router.post("/register", register);
@@ -17,7 +18,7 @@ router.get("/google/callback",
   passport.authenticate("google", { session: false, failureRedirect: `${process.env.CLIENT_URL}/auth?error=oauth_failed` }),
   (req, res) => {
     const { accessToken, refreshToken } = generateTokens(req.user);
-    res.redirect(`${process.env.CLIENT_URL}/oauth-callback?token=${accessToken}&refresh=${refreshToken}`);
+   res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${accessToken}&refresh=${refreshToken}`);
   }
 );
 
@@ -27,7 +28,7 @@ router.get("/github/callback",
   passport.authenticate("github", { session: false, failureRedirect: `${process.env.CLIENT_URL}/auth?error=oauth_failed` }),
   (req, res) => {
     const { accessToken, refreshToken } = generateTokens(req.user);
-    res.redirect(`${process.env.CLIENT_URL}/oauth-callback?token=${accessToken}&refresh=${refreshToken}`);
+    res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${accessToken}&refresh=${refreshToken}`);
   }
 );
 
