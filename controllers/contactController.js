@@ -383,23 +383,24 @@ exports.submitContact = async (req, res) => {
 </body>
 </html>`;
 
-    // ── Send both emails ───────────────────────────────
-    await Promise.all([
-      resend.emails.send({
-        from:    "HealthGuard AI <onboarding@resend.dev>",
-        to:      "sayalic106@gmail.com",
-        replyTo: email,
-        subject: `📬 New Contact: ${subject || "General Inquiry"} — ${name}`,
-        html:    adminHtml,
-      }),
-      resend.emails.send({
-        from:    "HealthGuard AI <onboarding@resend.dev>",
-        to:      email,
-        subject: `✅ We received your message, ${firstName}!`,
-        html:    userHtml,
-      }),
-    ]);
+await Promise.all([
+  // ✅ Admin ko — tumhari email pe
+  resend.emails.send({
+    from:    "HealthGuard AI <onboarding@resend.dev>",
+    to:      "sayalic106@gmail.com",
+    replyTo: email,
+    subject: `📬 New Contact: ${subject || "General Inquiry"} — ${name}`,
+    html:    adminHtml,
+  }),
 
+
+  resend.emails.send({
+    from:    "HealthGuard AI <onboarding@resend.dev>",
+    to:      "sayalic106@gmail.com", // ← abhi sirf apni email
+    subject: `✅ Confirmation for ${name} (${email})`,
+    html:    userHtml,
+  }),
+]);
     res.status(201).json({
       success: true,
       message: "Message sent! Please check your email for confirmation.",
