@@ -333,7 +333,7 @@ exports.sendReport = async (req, res) => {
 
     const { error } = await resend.emails.send({
       from:    "HealthGuard AI <onboarding@resend.dev>",
-      to:      [recipientEmail],
+      to:     recipientEmail,   
       subject: `Your Health Risk Report — ${new Date().toLocaleDateString("en-IN")}`,
       html:    htmlContent,
     });
