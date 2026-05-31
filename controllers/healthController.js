@@ -179,7 +179,7 @@ exports.deleteProfile = async (req, res) => {
 // Ye function healthController.js mein add karo (end mein)
 // Aur routes/healthRoutes.js mein: router.post("/send-report", sendReport);
 
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend"); // ✅ sirf resend, nodemailer nahi
 
 exports.sendReport = async (req, res) => {
   try {
@@ -200,308 +200,148 @@ exports.sendReport = async (req, res) => {
 
     const scores = profile.riskScores || {};
 
-    const getRiskLabel = (v) => v > 0.6 ? "High Risk" : v > 0.35 ? "Moderate" : "Low Risk";
+    // ✅ Helper functions
     const getPct       = (v) => Math.round((v || 0) * 100);
     const getRiskColor = (v) => v > 0.6 ? "#f87171" : v > 0.35 ? "#fbbf24" : "#22c55e";
-    const getRiskBg    = (v) => v > 0.6 ? "#1a0808" : v > 0.35 ? "#1a1505" : "#071a0a";
-    const getRiskBorder= (v) => v > 0.6 ? "#3a1212" : v > 0.35 ? "#3a2e08" : "#0f3a1a";
-    const getRiskBarBg = (v) => v > 0.6 ? "#2a0e0e" : v > 0.35 ? "#261e05" : "#062010";
-    const getPillStyle = (v) => {
-      if (v > 0.6)  return "background:#2a0e0e; color:#f87171; border:1px solid #4a1a1a;";
-      if (v > 0.35) return "background:#261e05; color:#fbbf24; border:1px solid #3a2e08;";
-      return "background:#071a0a; color:#22c55e; border:1px solid #0f3a1a;";
-    };
+    const getRiskLabel = (v) => v > 0.6 ? "High Risk" : v > 0.35 ? "Moderate" : "Low Risk";
     const overallColor = (r) => ["high","very_high"].includes(r) ? "#f87171" : r === "moderate" ? "#fbbf24" : "#22c55e";
-    const overallBg    = (r) => ["high","very_high"].includes(r) ? "#1a0808" : r === "moderate" ? "#1a1505" : "#071a0a";
-    const overallBorder= (r) => ["high","very_high"].includes(r) ? "#3a1212" : r === "moderate" ? "#3a2e08" : "#0f3a1a";
 
+    // ✅ htmlContent yahan define hai
     const htmlContent = `
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HealthGuard AI — Health Risk Report</title>
-</head>
-<body style="margin:0; padding:0; background:#050A05; font-family:Arial,Helvetica,sans-serif; -webkit-font-smoothing:antialiased;">
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#050A05;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;background:#050A05;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" 
+        style="background:#060E06;border-radius:20px;border:1px solid rgba(34,197,94,0.22);overflow:hidden;">
+        
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(90deg,#15803D,#22C55E);height:4px;font-size:0;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;border-bottom:1px solid rgba(34,197,94,0.12);">
+            <p style="margin:0;font-size:20px;font-weight:700;color:#DCFCE7;">🛡️ HealthGuard AI</p>
+            <p style="margin:4px 0 0;font-size:13px;color:#4A8A5A;">Health Risk Assessment Report</p>
+          </td>
+        </tr>
 
-  <!-- Outer wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#050A05; padding:40px 16px;">
-    <tr>
-      <td align="center">
+        <!-- Body -->
+        <tr>
+          <td style="padding:28px 32px;">
+            
+            <!-- Personal Details -->
+            <p style="margin:0 0 16px;font-size:11px;font-weight:700;color:#2A5A32;text-transform:uppercase;letter-spacing:0.1em;">
+              Personal Details
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <tr>
+                <td width="48%" style="padding:12px 14px;background:rgba(5,20,8,0.9);border:1px solid rgba(34,197,94,0.14);border-radius:10px;">
+                  <p style="margin:0 0 4px;font-size:10px;color:#2A5A32;text-transform:uppercase;">Age</p>
+                  <p style="margin:0;font-size:16px;font-weight:700;color:#DCFCE7;">${profile.age} years</p>
+                </td>
+                <td width="4%"></td>
+                <td width="48%" style="padding:12px 14px;background:rgba(5,20,8,0.9);border:1px solid rgba(34,197,94,0.14);border-radius:10px;">
+                  <p style="margin:0 0 4px;font-size:10px;color:#2A5A32;text-transform:uppercase;">Gender</p>
+                  <p style="margin:0;font-size:16px;font-weight:700;color:#DCFCE7;text-transform:capitalize;">${profile.gender || "N/A"}</p>
+                </td>
+              </tr>
+            </table>
 
-        <!-- Card -->
-        <table width="600" cellpadding="0" cellspacing="0" border="0"
-          style="background:#060E06; border-radius:20px; border:1px solid rgba(34,197,94,0.22); overflow:hidden; max-width:600px; width:100%;
-                 box-shadow:0 30px 60px rgba(0,0,0,0.7);">
+            <!-- Risk Analysis -->
+            <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#2A5A32;text-transform:uppercase;letter-spacing:0.1em;">
+              Risk Analysis
+            </p>
 
-          <!-- Green top accent line -->
-          <tr>
-            <td style="background:linear-gradient(90deg,#15803D,#22C55E); height:3px; font-size:0; line-height:0;">&nbsp;</td>
-          </tr>
-
-          <!-- ─── HEADER ─────────────────────────────────── -->
-          <tr>
-            <td style="padding:28px 32px; border-bottom:1px solid rgba(34,197,94,0.12);
-                       background:linear-gradient(180deg, rgba(34,197,94,0.05) 0%, transparent 100%);">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <!-- Diabetes -->
+            <div style="background:#071a0a;border:1px solid #0f3a1a;border-radius:12px;padding:16px;margin-bottom:10px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <!-- Logo mark -->
-                  <td style="width:50px; vertical-align:middle;">
-                    <div style="width:46px; height:46px; background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.28);
-                                border-radius:12px; text-align:center; line-height:46px; font-size:22px;">🛡️</div>
-                  </td>
-                  <!-- Brand name -->
-                  <td style="padding-left:12px; vertical-align:middle;">
-                    <p style="margin:0; font-size:18px; font-weight:700; color:#DCFCE7; letter-spacing:-0.01em;">HealthGuard AI</p>
-                    <p style="margin:3px 0 0; font-size:12px; color:#4A8A5A;">Health Risk Assessment Report</p>
-                  </td>
-                  <!-- Status badge -->
-                  <td align="right" style="vertical-align:middle;">
-                    <span style="background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30);
-                                 border-radius:40px; padding:5px 14px; font-size:11px; color:#22C55E;
-                                 font-weight:700; letter-spacing:0.06em; white-space:nowrap;">
-                      ● REPORT READY
-                    </span>
+                  <td style="font-size:13px;font-weight:700;color:#DCFCE7;">🩸 Diabetes Risk</td>
+                  <td align="right" style="font-size:11px;font-weight:700;color:${getRiskColor(scores.diabetes||0)};">
+                    ${getRiskLabel(scores.diabetes||0)}
                   </td>
                 </tr>
               </table>
-            </td>
-          </tr>
+              <div style="background:#062010;border-radius:4px;height:6px;margin:10px 0;overflow:hidden;">
+                <div style="width:${getPct(scores.diabetes||0)}%;background:${getRiskColor(scores.diabetes||0)};height:6px;border-radius:4px;"></div>
+              </div>
+              <p style="margin:0;font-size:16px;font-weight:800;color:${getRiskColor(scores.diabetes||0)};">${getPct(scores.diabetes||0)}%</p>
+            </div>
 
-          <!-- ─── BODY ────────────────────────────────────── -->
-          <tr>
-            <td style="padding:28px 32px;">
+            <!-- Heart Disease -->
+            <div style="background:#071a0a;border:1px solid #0f3a1a;border-radius:12px;padding:16px;margin-bottom:10px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:13px;font-weight:700;color:#DCFCE7;">❤️ Heart Disease Risk</td>
+                  <td align="right" style="font-size:11px;font-weight:700;color:${getRiskColor(scores.heartDisease||0)};">
+                    ${getRiskLabel(scores.heartDisease||0)}
+                  </td>
+                </tr>
+              </table>
+              <div style="background:#062010;border-radius:4px;height:6px;margin:10px 0;overflow:hidden;">
+                <div style="width:${getPct(scores.heartDisease||0)}%;background:${getRiskColor(scores.heartDisease||0)};height:6px;border-radius:4px;"></div>
+              </div>
+              <p style="margin:0;font-size:16px;font-weight:800;color:${getRiskColor(scores.heartDisease||0)};">${getPct(scores.heartDisease||0)}%</p>
+            </div>
 
-              <!-- Greeting -->
-              <p style="margin:0 0 24px; font-size:14px; color:#4A8A5A; line-height:1.7;">
-                Your personalized health risk assessment is ready. Review your results below and consult a healthcare professional for any concerns.
+            <!-- Hypertension -->
+            <div style="background:#071a0a;border:1px solid #0f3a1a;border-radius:12px;padding:16px;margin-bottom:20px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:13px;font-weight:700;color:#DCFCE7;">🩺 Hypertension Risk</td>
+                  <td align="right" style="font-size:11px;font-weight:700;color:${getRiskColor(scores.hypertension||0)};">
+                    ${getRiskLabel(scores.hypertension||0)}
+                  </td>
+                </tr>
+              </table>
+              <div style="background:#062010;border-radius:4px;height:6px;margin:10px 0;overflow:hidden;">
+                <div style="width:${getPct(scores.hypertension||0)}%;background:${getRiskColor(scores.hypertension||0)};height:6px;border-radius:4px;"></div>
+              </div>
+              <p style="margin:0;font-size:16px;font-weight:800;color:${getRiskColor(scores.hypertension||0)};">${getPct(scores.hypertension||0)}%</p>
+            </div>
+
+            <!-- Overall Risk -->
+            <div style="background:#071a0a;border:1px solid #0f3a1a;border-radius:12px;padding:18px;">
+              <p style="margin:0 0 6px;font-size:10px;font-weight:700;color:#2A5A32;text-transform:uppercase;">Overall Risk Level</p>
+              <p style="margin:0;font-size:24px;font-weight:800;color:${overallColor(scores.overallRisk)};">
+                ${(scores.overallRisk || "low").replace("_"," ").toUpperCase()}
               </p>
+            </div>
 
-              <!-- ── PERSONAL DETAILS ──────────────────────── -->
-              <p style="margin:0 0 12px; font-size:10px; font-weight:700; color:#2A5A32;
-                         letter-spacing:0.1em; text-transform:uppercase;">Personal Details</p>
+            <!-- Disclaimer -->
+            <p style="margin:20px 0 0;font-size:12px;color:#2A5A32;line-height:1.7;">
+              ⚠️ This report is for informational purposes only. Always consult a qualified healthcare professional.
+            </p>
+          </td>
+        </tr>
 
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-                <tr>
-                  <td width="48%" style="padding-bottom:10px; vertical-align:top;">
-                    <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.14);
-                                border-radius:12px; padding:14px 16px;">
-                      <p style="margin:0 0 5px; font-size:10px; font-weight:700; color:#2A5A32; text-transform:uppercase; letter-spacing:0.08em;">Age</p>
-                      <p style="margin:0; font-size:16px; font-weight:700; color:#DCFCE7;">${profile.age} years</p>
-                    </div>
-                  </td>
-                  <td width="4%"></td>
-                  <td width="48%" style="padding-bottom:10px; vertical-align:top;">
-                    <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.14);
-                                border-radius:12px; padding:14px 16px;">
-                      <p style="margin:0 0 5px; font-size:10px; font-weight:700; color:#2A5A32; text-transform:uppercase; letter-spacing:0.08em;">Gender</p>
-                      <p style="margin:0; font-size:16px; font-weight:700; color:#DCFCE7; text-transform:capitalize;">${profile.gender || "N/A"}</p>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td width="48%" style="vertical-align:top;">
-                    <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.14);
-                                border-radius:12px; padding:14px 16px;">
-                      <p style="margin:0 0 5px; font-size:10px; font-weight:700; color:#2A5A32; text-transform:uppercase; letter-spacing:0.08em;">BMI</p>
-                      <p style="margin:0; font-size:16px; font-weight:700; color:#DCFCE7;">${profile.bmi || "N/A"}</p>
-                    </div>
-                  </td>
-                  <td width="4%"></td>
-                  <td width="48%" style="vertical-align:top;">
-                    <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.14);
-                                border-radius:12px; padding:14px 16px;">
-                      <p style="margin:0 0 5px; font-size:10px; font-weight:700; color:#2A5A32; text-transform:uppercase; letter-spacing:0.08em;">Assessment Date</p>
-                      <p style="margin:0; font-size:15px; font-weight:700; color:#DCFCE7;">
-                        ${new Date(profile.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Divider -->
-              <div style="height:1px; background:rgba(34,197,94,0.08); margin:0 0 28px;"></div>
-
-              <!-- ── RISK ANALYSIS ──────────────────────────── -->
-              <p style="margin:0 0 14px; font-size:10px; font-weight:700; color:#2A5A32;
-                         letter-spacing:0.1em; text-transform:uppercase;">Risk Analysis</p>
-
-              ${[
-                { label: "Diabetes Risk",      icon: "🩸", val: scores.diabetes     || 0 },
-                { label: "Heart Disease Risk",  icon: "❤️", val: scores.heartDisease || 0 },
-                { label: "Hypertension Risk",   icon: "🩺", val: scores.hypertension || 0 },
-              ].map(({ label, icon, val }) => {
-                const pct    = getPct(val);
-                const color  = getRiskColor(val);
-                const bg     = getRiskBg(val);
-                const border = getRiskBorder(val);
-                const barBg  = getRiskBarBg(val);
-                const pill   = getPillStyle(val);
-                const note   = val > 0.6 ? "Significantly elevated" : val > 0.35 ? "Monitor regularly" : "Within normal range";
-                return `
-              <div style="background:${bg}; border:1px solid ${border}; border-radius:14px; padding:18px; margin-bottom:10px;">
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
-                  <tr>
-                    <td style="vertical-align:middle;">
-                      <span style="font-size:15px; margin-right:6px;">${icon}</span>
-                      <span style="font-size:13px; font-weight:700; color:#DCFCE7;">${label}</span>
-                    </td>
-                    <td align="right" style="vertical-align:middle;">
-                      <span style="${pill} font-size:10px; border-radius:20px; padding:4px 12px; font-weight:700; letter-spacing:0.05em;">
-                        ${getRiskLabel(val)}
-                      </span>
-                    </td>
-                  </tr>
-                </table>
-                <!-- Bar track -->
-                <div style="background:${barBg}; border-radius:4px; height:6px; margin-bottom:10px; overflow:hidden;">
-                  <div style="width:${pct}%; background:${color}; height:6px; border-radius:4px;"></div>
-                </div>
-                <!-- Pct + note -->
-                <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="font-size:15px; font-weight:800; color:${color};">${pct}%</td>
-                    <td align="right" style="font-size:11px; color:#4A8A5A;">${note}</td>
-                  </tr>
-                </table>
-              </div>`;
-              }).join("")}
-
-              <!-- ── OVERALL RISK ───────────────────────────── -->
-              <div style="background:${overallBg(scores.overallRisk)}; border:1px solid ${overallBorder(scores.overallRisk)};
-                           border-radius:14px; padding:20px 22px; margin:18px 0;">
-                <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="vertical-align:middle;">
-                      <p style="margin:0 0 6px; font-size:10px; font-weight:700; color:#2A5A32;
-                                 text-transform:uppercase; letter-spacing:0.09em;">Overall Risk Level</p>
-                      <p style="margin:0; font-size:22px; font-weight:800; color:${overallColor(scores.overallRisk)};
-                                 letter-spacing:-0.01em;">
-                        ${(scores.overallRisk || "low").replace("_", " ").toUpperCase()}
-                      </p>
-                    </td>
-                    <td align="right" style="vertical-align:middle;">
-                      <div style="width:44px; height:44px; background:rgba(34,197,94,0.08);
-                                  border:1px solid rgba(34,197,94,0.22); border-radius:12px;
-                                  text-align:center; line-height:44px; font-size:22px;">📊</div>
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <!-- ── REPORTED SYMPTOMS ─────────────────────── -->
-              ${profile.symptoms?.length > 0 ? `
-              <div style="margin-bottom:18px;">
-                <p style="margin:0 0 10px; font-size:10px; font-weight:700; color:#2A5A32;
-                           letter-spacing:0.1em; text-transform:uppercase;">Reported Symptoms</p>
-                <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.14);
-                             border-radius:12px; padding:14px 16px;">
-                  ${profile.symptoms.map(s =>
-                    `<span style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.20);
-                                  border-radius:20px; padding:4px 12px; font-size:11px; color:#22C55E;
-                                  font-weight:600; display:inline-block; margin:3px 4px;">
-                       ${s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
-                     </span>`
-                  ).join("")}
-                </div>
-              </div>` : ""}
-
-              <!-- ── NOTES ─────────────────────────────────── -->
-              ${profile.notes ? `
-              <div style="margin-bottom:18px;">
-                <p style="margin:0 0 10px; font-size:10px; font-weight:700; color:#2A5A32;
-                           letter-spacing:0.1em; text-transform:uppercase;">Additional Notes</p>
-                <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.14);
-                             border-radius:12px; padding:14px 16px; border-left:3px solid rgba(34,197,94,0.4);">
-                  <p style="margin:0; font-size:13px; color:#4A8A5A; line-height:1.7;">${profile.notes}</p>
-                </div>
-              </div>` : ""}
-
-              <!-- ── DISCLAIMER ─────────────────────────────── -->
-              <div style="background:rgba(5,20,8,0.9); border:1px solid rgba(34,197,94,0.10);
-                           border-radius:12px; padding:14px 16px; margin-top:8px;
-                           display:flex; gap:10px; align-items:flex-start;">
-                <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="width:20px; vertical-align:top; padding-top:1px; font-size:14px;">⚠️</td>
-                    <td style="padding-left:8px; font-size:12px; color:#2A5A32; line-height:1.7;">
-                      This report is for informational purposes only and does not constitute medical advice.
-                      Always consult a qualified healthcare professional before making any health decisions.
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-            </td>
-          </tr>
-
-          <!-- ─── FOOTER ─────────────────────────────────── -->
-          <tr>
-            <td style="background:rgba(5,18,8,0.95); border-top:1px solid rgba(34,197,94,0.10); padding:18px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td>
-                    <table cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td style="width:26px; vertical-align:middle;">
-                          <div style="width:24px; height:24px; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.25); border-radius:6px; text-align:center; line-height:24px; font-size:12px;">🛡️</div>
-                        </td>
-                        <td style="padding-left:8px; vertical-align:middle;">
-                          <span style="font-size:13px; font-weight:700; color:#DCFCE7;">HealthGuard AI</span>
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="margin:6px 0 0; font-size:11px; color:#2A5A32;">
-                      Generated on ${new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" })}
-                    </p>
-                  </td>
-                  <td align="right" style="vertical-align:middle;">
-                    <span style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.18);
-                                 border-radius:20px; padding:4px 12px; font-size:10px; color:#22C55E;
-                                 font-weight:700; letter-spacing:0.06em;">🔒 SECURE &amp; ENCRYPTED</span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Green bottom accent line -->
-          <tr>
-            <td style="background:linear-gradient(90deg,#15803D,#22C55E); height:3px; font-size:0; line-height:0;">&nbsp;</td>
-          </tr>
-
-        </table>
-
-        <!-- Below-card note -->
-        <p style="margin:20px 0 0; font-size:11px; color:#2A5A32; text-align:center;">
-          You received this report because it was requested via HealthGuard AI. &nbsp;|&nbsp; Do not reply to this email.
-        </p>
-
-      </td>
-    </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="background:linear-gradient(90deg,#15803D,#22C55E);height:3px;font-size:0;">&nbsp;</td>
+        </tr>
+      </table>
+    </td></tr>
   </table>
-
 </body>
 </html>`;
 
-    const transporter = nodemailer.createTransport({
-      host:   process.env.EMAIL_HOST,
-      port:   Number(process.env.EMAIL_PORT) || 465 ,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    // ✅ Resend se email bhejo
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await transporter.sendMail({
-      from:    `"HealthGuard AI" <${process.env.EMAIL_USER}>`,
-      to:      recipientEmail,
-      subject: `Your Health Risk Assessment Report — ${new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" })}`,
+    const { error } = await resend.emails.send({
+      from:    "HealthGuard AI <onboarding@resend.dev>",
+      to:      [recipientEmail],
+      subject: `Your Health Risk Report — ${new Date().toLocaleDateString("en-IN")}`,
       html:    htmlContent,
     });
+
+    if (error) {
+      console.error("Resend error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
 
     res.json({ success: true, message: "Report sent successfully!" });
 
