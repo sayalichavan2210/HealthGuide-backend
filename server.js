@@ -7,7 +7,7 @@ const cookieParser = require("cookie-parser");
 const passport     = require("passport");
 require("dotenv").config();
 const session = require("express-session");
-
+const adminRoutes = require("./routes/adminRoutes");
 const connectDB    = require("./config/db");
 require("./config/passport");
 
@@ -66,6 +66,7 @@ app.use("/api/auth",   authRoutes);
 app.use("/api/user",   userRoutes);
 app.use("/api/health", healthRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/admin",  adminRoutes);  
 // ── Gemini Proxy — Vitals Analysis (text) ────────────────
 app.post("/api/gemini", async (req, res) => {
   try {
