@@ -60,15 +60,15 @@ app.get("/health", (req, res) => {
     db:        mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
   });
 });
-app.get("/make-admin/:email", async (req, res) => {
-  const User = require("./models/User");
-  const user = await User.findOneAndUpdate(
-    { email: req.params.email },
-    { role: "admin" },
-    { new: true }
-  );
-  res.json({ success: true, role: user?.role, email: user?.email });
-});
+// app.get("/make-admin/:email", async (req, res) => {
+//   const User = require("./models/User");
+//   const user = await User.findOneAndUpdate(
+//     { email: req.params.email },
+//     { role: "admin" },
+//     { new: true }
+//   );
+//   res.json({ success: true, role: user?.role, email: user?.email });
+// });
 // ── Routes ───────────────────────────────────────────────
 app.use("/api/auth",   authRoutes);
 app.use("/api/user",   userRoutes);
