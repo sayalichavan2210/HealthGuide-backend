@@ -10,6 +10,8 @@ const userSchema = new mongoose.Schema({
   avatar:       { type: String, default: "" },
   authProvider: { type: String, default: "local" },
   isVerified:   { type: Boolean, default: false },
+  role: { type: String, enum: ["user", "admin"], default: "user" },
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
